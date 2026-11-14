@@ -2,8 +2,10 @@
  * פונקציות השרת של אפליקציית תזכורת ימי הולדת
  *  - dailyBirthdayAlerts: רצה כל יום ב-08:00 שעון ישראל ושולחת התראות למנהלים
  *  - sendTestNotification: כפתור "שלח התראת בדיקה" מתוך האפליקציה
+ *  - onManagerStatusChange: התראה לאדמין על הרשמה חדשה, ולמנהל כשאושר
  */
 const { onSchedule } = require('firebase-functions/v2/scheduler');
+const { onValueWritten } = require('firebase-functions/v2/database');
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const { setGlobalOptions } = require('firebase-functions/v2');
 const logger = require('firebase-functions/logger');
@@ -101,7 +103,7 @@ function normalizePhone(p) {
 }
 
 // ---------- ערוצי שליחה ----------
-async function sendPush(uid, manager, title, body) {
+async function sendPush(uid, manager, title, body, hash = '') {
   const devices = manager.fcmTokens || {};
   const tokens = Object.keys(devices);
   if (!tokens.length) return { ok: false, reason: 'no-tokens', devices: [] };
@@ -109,7 +111,7 @@ async function sendPush(uid, manager, title, body) {
   const webpush = { notification: { dir: 'rtl', lang: 'he' } };
   if (APP_URL) {
     webpush.notification.icon = APP_URL + 'icon.png';
-    webpush.fcmOptions = { link: APP_URL };
+    webpush.fcmOptions = { link: APP_URL + (hash ? '#' + hash : '') };
   }
 
   const res = await admin.messaging().sendEachForMulticast({ tokens, notification: { title, body }, webpush });
@@ -188,7 +190,9 @@ exports.dailyBirthdayAlerts = onSchedule({ schedule: '0 8 * * *', timeZone: TZ }
     return;
   }
 
-  const [empSnap, mgrSnap] = await Promise.all([db.ref('employees').get(), db.ref('managers').get()]);
+  const [empSnap, mgrSnap, adminSnap] = await Promise.all([
+    db.ref('employees').get(), db.ref('managers').get(), db.ref('admins').get(),
+  ]);
   const groups = collectBirthdays(empSnap.val(), today, targets);
   if (!groups.length) {
     logger.info('אין ימי הולדת היום');
@@ -199,8 +203,11 @@ exports.dailyBirthdayAlerts = onSchedule({ schedule: '0 8 * * *', timeZone: TZ }
   const dayKey = `${today.y}-${pad(today.m)}-${pad(today.d)}`;
   const log = (await db.ref(`sentLog/${dayKey}`).get()).val() || {};
   const managers = mgrSnap.val() || {};
+  const admins = adminSnap.val() || {};
 
   for (const [uid, manager] of Object.entries(managers)) {
+    const allowed = manager.status === 'approved' || admins[uid] === true;
+    if (!allowed) continue; // רק מנהלים מאושרים
     if (log[uid] && log[uid].ok) continue; // כבר נשלח היום
     const result = await notifyManager(uid, manager, title, body);
     await db.ref(`sentLog/${dayKey}/${uid}`).set({
@@ -233,4 +240,35 @@ exports.sendTestNotification = onCall(async (request) => {
     .map((a) => `${a.channel === 'push' ? 'Push' : 'וואטסאפ'}: ${REASONS[a.reason] || a.reason}`)
     .join('\n');
   return { ok: false, message: '❌ השליחה נכשלה\n' + details + deviceReport(result.attempts) };
+});
+
+// ---------- אישור מנהלים ----------
+// הרשמה חדשה (status = pending) -> התראה לכל האדמינים
+// אישור (status = approved) -> התראה למנהל עצמו
+exports.onManagerStatusChange = onValueWritten({ ref: '/managers/{uid}/status' }, async (event) => {
+  const before = event.data.before.val();
+  const after = event.data.after.val();
+  const uid = event.params.uid;
+  if (before === after) return;
+
+  try {
+    const manager = (await db.ref(`managers/${uid}`).get()).val() || {};
+
+    if (after === 'pending') {
+      const admins = (await db.ref('admins').get()).val() || {};
+      const who = [manager.name, manager.email ? `(${manager.email})` : ''].filter(Boolean).join(' ') || 'משתמש חדש';
+      for (const adminUid of Object.keys(admins)) {
+        if (admins[adminUid] !== true || adminUid === uid) continue;
+        const adminProfile = (await db.ref(`managers/${adminUid}`).get()).val();
+        if (!adminProfile) continue;
+        const r = await sendPush(adminUid, adminProfile, '🆕 מנהל חדש ממתין לאישור', who, 'approvals');
+        logger.info(`התראת הרשמה לאדמין ${adminUid}: ${r.ok ? 'נשלחה' : r.reason}`);
+      }
+    } else if (after === 'approved') {
+      const r = await sendPush(uid, manager, '✅ הגישה שלך אושרה', 'אפשר להיכנס לאפליקציית ימי ההולדת 🎂');
+      logger.info(`התראת אישור למנהל ${uid}: ${r.ok ? 'נשלחה' : r.reason}`);
+    }
+  } catch (e) {
+    logger.error('onManagerStatusChange failed', e);
+  }
 });

@@ -122,7 +122,10 @@
         .full-screen { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; background: linear-gradient(135deg, var(--primary-blue), var(--light-blue)); color: white; padding: 20px; text-align: center; position: fixed; inset: 0; z-index: 9999; }
         .login-box { width: 100%; max-width: 320px; margin-top: 25px; }
         .login-box input { margin-bottom: 12px; text-align: center; }
-        .login-box a { color: white; opacity: 0.85; display: inline-block; margin-top: 15px; font-weight: 600; }
+        .login-box a { color: white; opacity: 0.85; display: block; margin-top: 15px; font-weight: 600; }
+        .nav-badge { position: absolute; top: 6px; left: calc(50% - 22px); background: var(--danger); color: white; font-size: 0.7rem; min-width: 18px; height: 18px; border-radius: 9px; display: none; align-items: center; justify-content: center; padding: 0 4px; }
+        .approve-btn { background: var(--success); color: white; border: none; border-radius: 9px; padding: 8px 12px; font-weight: 800; cursor: pointer; }
+        .reject-btn { background: rgba(239, 68, 68, 0.1); color: var(--danger); border: none; border-radius: 9px; padding: 8px 12px; font-weight: 800; cursor: pointer; }
         #login-error { color: #fecaca; margin-top: 12px; font-weight: 800; min-height: 1.4em; }
         #app-container { display: none; height: 100%; flex-direction: column; }
     </style>
@@ -139,13 +142,27 @@
     <div id="login-screen" class="full-screen" style="display: none;">
         <div style="font-size: 3.5rem;">🎂</div>
         <h1 style="font-size: 1.9rem; margin-top: 5px;">תזכורת ימי הולדת</h1>
-        <p style="opacity: 0.9;">כניסה למנהלים</p>
+        <p style="opacity: 0.9;" id="auth-subtitle">כניסה למנהלים</p>
         <div class="login-box">
+            <input type="text" id="signup-name" placeholder="שם מלא" autocomplete="name" style="display: none;">
             <input type="email" id="login-email" placeholder="מייל" autocomplete="username" dir="ltr">
             <input type="password" id="login-password" placeholder="סיסמה" autocomplete="current-password" dir="ltr">
-            <button class="btn btn-light" id="btn-login" onclick="doLogin()">כניסה</button>
-            <a href="#" onclick="forgotPassword(); return false;">שכחתי סיסמה</a>
+            <input type="password" id="signup-password2" placeholder="אימות סיסמה" autocomplete="new-password" dir="ltr" style="display: none;">
+            <button class="btn btn-light" id="btn-login" onclick="submitAuth()">כניסה</button>
+            <a href="#" id="toggle-auth-link" onclick="toggleAuthMode(); return false;">מנהל חדש? להרשמה</a>
+            <a href="#" id="forgot-link" onclick="forgotPassword(); return false;">שכחתי סיסמה</a>
             <p id="login-error"></p>
+        </div>
+    </div>
+
+    <!-- ממתין לאישור -->
+    <div id="pending-screen" class="full-screen" style="display: none;">
+        <div style="font-size: 3.5rem;" id="pending-icon">⏳</div>
+        <h1 style="font-size: 1.7rem; margin-top: 5px;" id="pending-title">ההרשמה התקבלה</h1>
+        <p style="opacity: 0.9; max-width: 340px; line-height: 1.6; margin-top: 8px;" id="pending-text"></p>
+        <div class="login-box">
+            <button class="btn btn-light" id="btn-pending-push" onclick="enablePush()">🔔 עדכנו אותי כשאושרתי</button>
+            <button class="btn" style="background: rgba(255,255,255,0.15); color: white; box-shadow: none;" onclick="doLogout(true)">התנתק</button>
         </div>
     </div>
 
@@ -228,6 +245,19 @@
                 </div>
             </div>
 
+            <!-- ===== אישורים (אדמין בלבד) ===== -->
+            <div id="tab-approvals" class="tab-content">
+                <h2>✅ אישור מנהלים</h2>
+                <h3 class="section-title">⏳ ממתינים לאישור</h3>
+                <div class="glass-panel list-panel" id="list-pending"></div>
+                <h3 class="section-title">👥 מנהלים מאושרים</h3>
+                <div class="glass-panel list-panel" id="list-approved"></div>
+                <div id="rejected-wrap" style="display: none;">
+                    <h3 class="section-title">🚫 נדחו / גישה בוטלה</h3>
+                    <div class="glass-panel list-panel" id="list-rejected"></div>
+                </div>
+            </div>
+
             <!-- ===== הגדרות ===== -->
             <div id="tab-settings" class="tab-content">
                 <h2>⚙️ הגדרות</h2>
@@ -280,6 +310,7 @@
             <button class="nav-btn active" data-tab="home" onclick="switchTab('home')"><span>🎂</span>ראשי</button>
             <button class="nav-btn" data-tab="employees" onclick="switchTab('employees')"><span>👥</span>עובדים</button>
             <button class="nav-btn" data-tab="import" onclick="switchTab('import')"><span>📥</span>ייבוא</button>
+            <button class="nav-btn" data-tab="approvals" id="nav-approvals" onclick="switchTab('approvals')" style="display: none;"><span>✅</span>אישורים<div class="nav-badge" id="approvals-badge"></div></button>
             <button class="nav-btn" data-tab="settings" onclick="switchTab('settings')"><span>⚙️</span>הגדרות</button>
         </nav>
     </div>
@@ -320,6 +351,12 @@
         let importRows = [];
         let deferredInstallPrompt = null;
         let messagingInstance = null;
+        let isAdmin = false;
+        let appStarted = false;
+        let signupMode = false;
+        let pendingSignup = null;
+        let managersRef = null;
+        let allManagers = {};
 
         // ================= כלים =================
         function esc(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
@@ -359,21 +396,55 @@
             return `בעוד ${du} ימים (יום ${WEEKDAYS[date.getDay()]})`;
         }
 
-        // ================= כניסה / יציאה =================
+        // ================= כניסה / הרשמה / יציאה =================
         auth.onAuthStateChanged(user => {
             document.getElementById('loading-screen').style.display = 'none';
             if (user) {
                 currentUser = user;
                 document.getElementById('login-screen').style.display = 'none';
-                document.getElementById('app-container').style.display = 'flex';
-                startApp();
+                startSession();
             } else {
-                stopApp();
+                stopSession();
                 currentUser = null;
                 document.getElementById('app-container').style.display = 'none';
+                document.getElementById('pending-screen').style.display = 'none';
                 document.getElementById('login-screen').style.display = 'flex';
             }
         });
+
+        function toggleAuthMode() {
+            signupMode = !signupMode;
+            document.getElementById('signup-name').style.display = signupMode ? 'block' : 'none';
+            document.getElementById('signup-password2').style.display = signupMode ? 'block' : 'none';
+            document.getElementById('forgot-link').style.display = signupMode ? 'none' : 'block';
+            document.getElementById('btn-login').innerText = signupMode ? 'הרשמה' : 'כניסה';
+            document.getElementById('auth-subtitle').innerText = signupMode ? 'הרשמת מנהל חדש' : 'כניסה למנהלים';
+            document.getElementById('toggle-auth-link').innerText = signupMode ? 'כבר רשום? לכניסה' : 'מנהל חדש? להרשמה';
+            document.getElementById('login-password').setAttribute('autocomplete', signupMode ? 'new-password' : 'current-password');
+            document.getElementById('login-error').innerText = '';
+        }
+
+        function submitAuth() { signupMode ? doSignup() : doLogin(); }
+
+        const AUTH_ERRORS = {
+            'auth/invalid-credential': 'מייל או סיסמה שגויים',
+            'auth/wrong-password': 'מייל או סיסמה שגויים',
+            'auth/user-not-found': 'מייל או סיסמה שגויים',
+            'auth/invalid-email': 'כתובת מייל לא תקינה',
+            'auth/user-disabled': 'המשתמש חסום. פנה למנהל המערכת',
+            'auth/too-many-requests': 'יותר מדי ניסיונות. נסה שוב בעוד כמה דקות',
+            'auth/network-request-failed': 'אין חיבור לאינטרנט',
+            'auth/email-already-in-use': 'המייל הזה כבר רשום – עבור ל"כניסה"',
+            'auth/weak-password': 'הסיסמה חלשה מדי (לפחות 6 תווים)',
+            'auth/operation-not-allowed': 'ההרשמה סגורה כרגע. פנה למנהל המערכת',
+            'auth/admin-restricted-operation': 'ההרשמה סגורה כרגע. פנה למנהל המערכת'
+        };
+
+        function setAuthBusy(busy, text) {
+            const btn = document.getElementById('btn-login');
+            btn.disabled = busy;
+            btn.innerText = busy ? text : (signupMode ? 'הרשמה' : 'כניסה');
+        }
 
         function doLogin() {
             const email = document.getElementById('login-email').value.trim();
@@ -381,24 +452,31 @@
             const errEl = document.getElementById('login-error');
             errEl.innerText = '';
             if (!email || !pass) { errEl.innerText = 'יש למלא מייל וסיסמה'; return; }
-            const btn = document.getElementById('btn-login');
-            btn.disabled = true; btn.innerText = 'מתחבר...';
+            setAuthBusy(true, 'מתחבר...');
             auth.signInWithEmailAndPassword(email, pass)
-                .catch(err => {
-                    const map = {
-                        'auth/invalid-credential': 'מייל או סיסמה שגויים',
-                        'auth/wrong-password': 'מייל או סיסמה שגויים',
-                        'auth/user-not-found': 'מייל או סיסמה שגויים',
-                        'auth/invalid-email': 'כתובת מייל לא תקינה',
-                        'auth/user-disabled': 'המשתמש חסום. פנה למנהל המערכת',
-                        'auth/too-many-requests': 'יותר מדי ניסיונות. נסה שוב בעוד כמה דקות',
-                        'auth/network-request-failed': 'אין חיבור לאינטרנט'
-                    };
-                    errEl.innerText = map[err.code] || ('שגיאה: ' + err.message);
-                })
-                .finally(() => { btn.disabled = false; btn.innerText = 'כניסה'; });
+                .catch(err => { errEl.innerText = AUTH_ERRORS[err.code] || ('שגיאה: ' + err.message); })
+                .finally(() => setAuthBusy(false));
         }
-        document.getElementById('login-password').addEventListener('keypress', e => { if (e.key === 'Enter') doLogin(); });
+
+        function doSignup() {
+            const name = document.getElementById('signup-name').value.trim().replace(/\s+/g, ' ');
+            const email = document.getElementById('login-email').value.trim();
+            const pass = document.getElementById('login-password').value;
+            const pass2 = document.getElementById('signup-password2').value;
+            const errEl = document.getElementById('login-error');
+            errEl.innerText = '';
+            if (!name) { errEl.innerText = 'יש להזין שם מלא'; return; }
+            if (!email) { errEl.innerText = 'יש להזין מייל'; return; }
+            if (pass.length < 6) { errEl.innerText = 'הסיסמה צריכה להכיל לפחות 6 תווים'; return; }
+            if (pass !== pass2) { errEl.innerText = 'הסיסמאות אינן תואמות'; return; }
+            pendingSignup = { name };
+            setAuthBusy(true, 'נרשם...');
+            auth.createUserWithEmailAndPassword(email, pass)
+                .catch(err => { pendingSignup = null; errEl.innerText = AUTH_ERRORS[err.code] || ('שגיאה: ' + err.message); })
+                .finally(() => setAuthBusy(false));
+        }
+        document.getElementById('login-password').addEventListener('keypress', e => { if (e.key === 'Enter' && !signupMode) submitAuth(); });
+        document.getElementById('signup-password2').addEventListener('keypress', e => { if (e.key === 'Enter') submitAuth(); });
 
         function forgotPassword() {
             const email = document.getElementById('login-email').value.trim();
@@ -408,8 +486,8 @@
                 .catch(() => showAlert('אם המייל רשום במערכת, נשלח אליו קישור לאיפוס סיסמה.'));
         }
 
-        async function doLogout() {
-            if (!confirm('להתנתק? התראות לא יגיעו למכשיר הזה עד שתתחבר שוב.')) return;
+        async function doLogout(skipConfirm) {
+            if (!skipConfirm && !confirm('להתנתק? התראות לא יגיעו למכשיר הזה עד שתתחבר שוב.')) return;
             const token = lsGet('fcmToken');
             if (token && currentUser) {
                 try { await db.ref(`managers/${currentUser.uid}/fcmTokens/${token}`).remove(); } catch (e) {}
@@ -429,8 +507,72 @@
                 });
         }
 
+        // ================= סשן והרשאות =================
+        async function startSession() {
+            try { isAdmin = (await db.ref('admins/' + currentUser.uid).once('value')).val() === true; }
+            catch (e) { isAdmin = false; }
+
+            profileRef = db.ref('managers/' + currentUser.uid);
+            profileLoaded = false;
+            try {
+                const snap = await profileRef.once('value');
+                if (!snap.exists()) {
+                    const p = pendingSignup || {};
+                    await profileRef.set({
+                        email: currentUser.email, name: p.name || '', phone: '', channel: 'push',
+                        status: 'pending', createdAt: firebase.database.ServerValue.TIMESTAMP
+                    });
+                }
+            } catch (err) {
+                showAlert('שגיאה בטעינת הפרופיל: ' + err.message);
+            }
+            pendingSignup = null;
+
+            profileRef.on('value', snap => {
+                profile = snap.val() || {};
+                applyAccess();
+                if (!profileLoaded) {
+                    document.getElementById('set-name').value = profile.name || '';
+                    document.getElementById('set-phone').value = profile.phone || '';
+                    document.getElementById('set-channel').value = profile.channel || 'push';
+                    profileLoaded = true;
+                }
+                updatePushStatus();
+                renderHints();
+            });
+            refreshPushToken();
+        }
+
+        function hasAccess() { return isAdmin || profile.status === 'approved'; }
+
+        function applyAccess() {
+            if (hasAccess()) {
+                document.getElementById('pending-screen').style.display = 'none';
+                document.getElementById('app-container').style.display = 'flex';
+                if (!appStarted) startApp();
+            } else {
+                if (appStarted) stopApp();
+                document.getElementById('app-container').style.display = 'none';
+                const rejected = profile.status === 'rejected';
+                document.getElementById('pending-icon').innerText = rejected ? '🚫' : '⏳';
+                document.getElementById('pending-title').innerText = rejected ? 'אין גישה' : 'ההרשמה התקבלה';
+                document.getElementById('pending-text').innerText = rejected
+                    ? 'הבקשה שלך לא אושרה או שהגישה בוטלה. לבירור פנה למנהל המערכת.'
+                    : `שלום ${profile.name || ''} 👋\nהבקשה שלך נשלחה לאישור. ברגע שתאושר, המסך הזה יתחלף אוטומטית.`;
+                document.getElementById('btn-pending-push').style.display = rejected || lsGet('fcmToken') ? 'none' : 'block';
+                document.getElementById('pending-screen').style.display = 'flex';
+            }
+        }
+
+        function stopSession() {
+            stopApp();
+            if (profileRef) profileRef.off();
+            profile = {}; profileRef = null; isAdmin = false;
+        }
+
         // ================= הפעלת האפליקציה =================
         function startApp() {
+            appStarted = true;
             document.getElementById('date-badge').innerText = new Date().toLocaleDateString('he-IL', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
             document.getElementById('set-email').innerText = currentUser.email;
             fillDateSelects();
@@ -440,39 +582,78 @@
                 snap => { employees = snap.val() || {}; renderHome(); renderEmployees(); },
                 err => showAlert('אין הרשאה לקרוא נתונים: ' + err.message));
 
-            profileRef = db.ref('managers/' + currentUser.uid);
-            profileLoaded = false;
-            profileRef.once('value').then(snap => {
-                if (!snap.exists()) {
-                    return profileRef.set({ email: currentUser.email, name: '', phone: '', channel: 'push', createdAt: firebase.database.ServerValue.TIMESTAMP });
-                }
-            }).then(() => {
-                profileRef.on('value', snap => {
-                    profile = snap.val() || {};
-                    if (!profileLoaded) {
-                        document.getElementById('set-name').value = profile.name || '';
-                        document.getElementById('set-phone').value = profile.phone || '';
-                        document.getElementById('set-channel').value = profile.channel || 'push';
-                        profileLoaded = true;
-                    }
-                    updatePushStatus();
-                    renderHints();
-                });
-                refreshPushToken();
-            }).catch(err => showAlert('שגיאה בטעינת הפרופיל: ' + err.message));
+            document.getElementById('nav-approvals').style.display = isAdmin ? 'flex' : 'none';
+            if (isAdmin) {
+                managersRef = db.ref('managers');
+                managersRef.on('value', snap => { allManagers = snap.val() || {}; renderApprovals(); },
+                    err => console.warn('managers read failed', err));
+            }
+            if (location.hash === '#approvals' && isAdmin) switchTab('approvals');
         }
 
         function stopApp() {
+            appStarted = false;
             db.ref('employees').off();
-            if (profileRef) profileRef.off();
-            employees = {}; profile = {}; profileRef = null;
+            if (managersRef) { managersRef.off(); managersRef = null; }
+            employees = {}; allManagers = {};
+            document.getElementById('nav-approvals').style.display = 'none';
         }
+
+        window.addEventListener('hashchange', () => { if (location.hash === '#approvals' && isAdmin && appStarted) switchTab('approvals'); });
 
         function switchTab(tabId) {
             document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
             document.querySelectorAll('.nav-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tabId));
             document.getElementById('tab-' + tabId).classList.add('active');
             document.querySelector('main').scrollTop = 0;
+        }
+
+        // ================= אישור מנהלים (אדמין) =================
+        function managerItem(uid, m, buttons) {
+            const since = m.createdAt ? new Date(m.createdAt).toLocaleDateString('he-IL') : '';
+            return `<div class="list-item">
+                <div class="item-icon">👤</div>
+                <div class="item-content">
+                    <div class="item-title">${esc(m.name || '(ללא שם)')}</div>
+                    <div class="item-meta" dir="ltr" style="text-align:right">${esc(m.email || '')}</div>
+                    ${since ? `<div class="item-meta">נרשם: ${since}</div>` : ''}
+                </div>
+                <div class="item-actions">${buttons}</div>
+            </div>`;
+        }
+
+        function renderApprovals() {
+            const list = Object.entries(allManagers).filter(([uid]) => uid !== currentUser.uid)
+                .sort((a, b) => (b[1].createdAt || 0) - (a[1].createdAt || 0));
+            const pending = list.filter(([, m]) => m.status === 'pending' || !m.status);
+            const approved = list.filter(([, m]) => m.status === 'approved');
+            const rejected = list.filter(([, m]) => m.status === 'rejected');
+
+            document.getElementById('list-pending').innerHTML = pending.length
+                ? pending.map(([uid, m]) => managerItem(uid, m,
+                    `<button class="approve-btn" onclick="setManagerStatus('${uid}', 'approved')">✅ אשר</button>
+                     <button class="reject-btn" onclick="setManagerStatus('${uid}', 'rejected')">❌</button>`)).join('')
+                : '<div class="empty">אין בקשות ממתינות 👍</div>';
+            document.getElementById('list-approved').innerHTML = approved.length
+                ? approved.map(([uid, m]) => managerItem(uid, m,
+                    `<button class="reject-btn" onclick="setManagerStatus('${uid}', 'rejected')">בטל גישה</button>`)).join('')
+                : '<div class="empty">עדיין אין מנהלים מאושרים</div>';
+            document.getElementById('rejected-wrap').style.display = rejected.length ? 'block' : 'none';
+            document.getElementById('list-rejected').innerHTML = rejected.map(([uid, m]) => managerItem(uid, m,
+                `<button class="approve-btn" onclick="setManagerStatus('${uid}', 'approved')">אשר</button>`)).join('');
+
+            const badge = document.getElementById('approvals-badge');
+            badge.innerText = pending.length;
+            badge.style.display = pending.length ? 'flex' : 'none';
+        }
+
+        function setManagerStatus(uid, status) {
+            const m = allManagers[uid] || {};
+            const name = m.name || m.email || 'המנהל';
+            if (status === 'rejected' && !confirm(m.status === 'approved' ? `לבטל את הגישה של ${name}?` : `לדחות את הבקשה של ${name}?`)) return;
+            db.ref(`managers/${uid}/status`).set(status)
+                .then(() => { if (status === 'approved') showAlert(`✅ ${name} אושר/ה וקיבל/ה גישה`); })
+                .catch(err => showAlert('שגיאה: ' + err.message));
         }
 
         // ================= מסך ראשי =================
@@ -752,12 +933,31 @@
             try { return await Promise.resolve(firebase.messaging.isSupported()); } catch (e) { return false; }
         }
 
+        function deviceLabel() {
+            const ua = navigator.userAgent;
+            let os = 'מחשב';
+            if (/iphone|ipod/i.test(ua)) os = 'אייפון';
+            else if (/ipad/i.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)) os = 'אייפד';
+            else if (/android/i.test(ua)) os = 'אנדרואיד';
+            else if (/windows/i.test(ua)) os = 'מחשב Windows';
+            else if (/mac/i.test(ua)) os = 'מחשב Mac';
+            return `${os}${isStandalone() ? ' (אפליקציה מותקנת)' : ' (דפדפן)'}`;
+        }
+
+        // כשהאפליקציה פתוחה – מציגים את ההתראה כהתראת מערכת רגילה
         function getMessaging() {
             if (!messagingInstance) {
                 messagingInstance = firebase.messaging();
-                messagingInstance.onMessage(payload => {
+                messagingInstance.onMessage(async payload => {
                     const n = payload.notification || {};
-                    showAlert(`${n.title || '🔔'}\n${n.body || ''}`);
+                    try {
+                        const reg = await navigator.serviceWorker.getRegistration();
+                        if (reg && Notification.permission === 'granted') {
+                            await reg.showNotification(n.title || '🔔', { body: n.body || '', icon: 'icon.png', dir: 'rtl', lang: 'he' });
+                            return;
+                        }
+                    } catch (e) {}
+                    setTimeout(() => showAlert(`${n.title || '🔔'}\n${n.body || ''}`), 1500);
                 });
             }
             return messagingInstance;
@@ -771,7 +971,7 @@
             const old = lsGet('fcmToken');
             const updates = {};
             if (old && old !== token) updates[`managers/${currentUser.uid}/fcmTokens/${old}`] = null;
-            updates[`managers/${currentUser.uid}/fcmTokens/${token}`] = true;
+            updates[`managers/${currentUser.uid}/fcmTokens/${token}`] = { label: deviceLabel(), at: firebase.database.ServerValue.TIMESTAMP };
             await db.ref().update(updates);
             lsSet('fcmToken', token);
             return token;
