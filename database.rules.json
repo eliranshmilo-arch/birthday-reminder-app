@@ -1,0 +1,33 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+
+    "employees": {
+      ".read": "auth != null",
+      ".write": "auth != null",
+      "$id": {
+        ".validate": "newData.hasChildren(['name', 'day', 'month'])",
+        "name": { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 100" },
+        "day": { ".validate": "newData.isNumber() && newData.val() >= 1 && newData.val() <= 31" },
+        "month": { ".validate": "newData.isNumber() && newData.val() >= 1 && newData.val() <= 12" },
+        "department": { ".validate": "newData.isString() && newData.val().length <= 100" },
+        "phone": { ".validate": "newData.isString() && newData.val().length <= 30" },
+        "updatedAt": { ".validate": "newData.isNumber()" },
+        "updatedBy": { ".validate": "newData.isString()" },
+        "$other": { ".validate": false }
+      }
+    },
+
+    "managers": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": "auth != null && auth.uid === $uid"
+      }
+    },
+
+    "sentLog": {
+      ".read": "auth != null"
+    }
+  }
+}

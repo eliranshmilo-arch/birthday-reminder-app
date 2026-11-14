@@ -1,0 +1,15 @@
+{
+  "name": "תזכורת ימי הולדת",
+  "short_name": "ימי הולדת",
+  "description": "תזכורות ימי הולדת של עובדים למנהלים",
+  "lang": "he",
+  "dir": "rtl",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#1e3a8a",
+  "theme_color": "#1e3a8a",
+  "icons": [
+    { "src": "icon.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}

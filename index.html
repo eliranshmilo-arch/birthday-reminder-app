@@ -1,0 +1,851 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>תזכורת ימי הולדת</title>
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" href="icon.png">
+    <link rel="apple-touch-icon" href="icon.png">
+    <meta name="theme-color" content="#1e3a8a">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="ימי הולדת">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;600;800&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --primary-blue: #1e3a8a;
+            --light-blue: #3b82f6;
+            --accent-color: #0ea5e9;
+            --bg-color: #f1f5f9;
+            --text-dark: #1e293b;
+            --text-gray: #64748b;
+            --danger: #ef4444;
+            --success: #10b981;
+            --party: #ec4899;
+            --white: #ffffff;
+            --glass-bg: rgba(255, 255, 255, 0.7);
+            --glass-border: rgba(255, 255, 255, 0.8);
+            --glass-shadow: 0 8px 32px 0 rgba(30, 58, 138, 0.05);
+        }
+
+        * { box-sizing: border-box; font-family: 'Heebo', sans-serif; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+        body { background: linear-gradient(135deg, #e2e8f0 0%, #f8fafc 100%); background-attachment: fixed; color: var(--text-dark); display: flex; flex-direction: column; height: 100vh; height: 100dvh; overflow: hidden; }
+
+        .glass-panel { background: var(--glass-bg); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border: 1px solid var(--glass-border); box-shadow: var(--glass-shadow); border-radius: 20px; }
+
+        header { background: linear-gradient(135deg, var(--primary-blue), var(--light-blue)); color: var(--white); text-align: center; padding: calc(env(safe-area-inset-top) + 18px) 15px 22px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); z-index: 10; border-bottom-left-radius: 25px; border-bottom-right-radius: 25px; }
+        header h1 { font-size: 1.4rem; font-weight: 800; margin-bottom: 5px; text-shadow: 0 2px 4px rgba(0,0,0,0.2); }
+        .date-badge { font-size: 0.95rem; font-weight: 600; background: rgba(255,255,255,0.2); padding: 4px 15px; border-radius: 20px; display: inline-block; border: 1px solid rgba(255,255,255,0.3); }
+
+        main { flex-grow: 1; overflow-y: auto; padding: 20px 15px; padding-bottom: 120px; scroll-behavior: smooth; }
+        .tab-content { display: none; animation: slideFadeIn 0.3s ease-out; }
+        .tab-content.active { display: block; }
+        @keyframes slideFadeIn { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
+
+        h2 { color: var(--primary-blue); font-size: 1.4rem; font-weight: 800; margin-bottom: 20px; }
+        .section-title { font-size: 1.05rem; color: var(--text-gray); margin: 22px 0 10px; font-weight: 800; }
+        .panel-title { font-size: 1.1rem; color: var(--primary-blue); margin-bottom: 15px; font-weight: 800; }
+        .muted { font-size: 0.9rem; color: var(--text-gray); line-height: 1.5; }
+
+        .input-group { margin-bottom: 15px; }
+        .input-group label { display: block; font-size: 0.9rem; font-weight: 800; color: var(--text-gray); margin-bottom: 6px; }
+        input[type="text"], input[type="email"], input[type="password"], input[type="tel"], input[type="search"], select { width: 100%; padding: 14px; background: rgba(255,255,255,0.8); border: 1px solid #cbd5e1; border-radius: 12px; font-size: 1.05rem; font-weight: 600; color: var(--text-dark); transition: all 0.3s ease; }
+        input:focus, select:focus { background: #fff; border-color: var(--light-blue); outline: none; box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15); }
+        .row { display: flex; gap: 12px; }
+        .row > * { flex: 1; }
+
+        .btn { display: block; width: 100%; text-align: center; padding: 15px; border-radius: 14px; text-decoration: none; font-size: 1.05rem; font-weight: 800; border: none; cursor: pointer; transition: all 0.2s ease; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        .btn-primary { background: linear-gradient(135deg, var(--light-blue), var(--primary-blue)); color: white; }
+        .btn-success { background: linear-gradient(135deg, #10b981, #059669); color: white; }
+        .btn-secondary { background: rgba(0,0,0,0.07); color: var(--text-dark); box-shadow: none; }
+        .btn-danger { background: rgba(239, 68, 68, 0.1); color: var(--danger); box-shadow: none; }
+        .btn-light { background: white; color: var(--primary-blue); }
+        .btn:active { transform: scale(0.97); }
+        .btn:disabled { opacity: 0.6; cursor: default; }
+        .btn + .btn { margin-top: 10px; }
+
+        /* כרטיס היום */
+        .today-card { padding: 20px; margin-bottom: 10px; border: 2px solid rgba(236, 72, 153, 0.35); }
+        .today-card .panel-title { color: var(--party); text-align: center; font-size: 1.2rem; }
+
+        /* פריטי רשימה */
+        .list-panel { padding: 5px; }
+        .list-item { display: flex; align-items: center; padding: 14px; border-bottom: 1px solid rgba(0,0,0,0.05); gap: 12px; }
+        .list-item:last-child { border-bottom: none; }
+        .item-icon { font-size: 1.6rem; background: rgba(59, 130, 246, 0.1); width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; border-radius: 14px; flex-shrink: 0; }
+        .item-icon.today { background: rgba(236, 72, 153, 0.15); }
+        .item-content { flex-grow: 1; min-width: 0; }
+        .item-title { font-weight: 800; font-size: 1.05rem; line-height: 1.25; word-break: break-word; }
+        .item-meta { font-size: 0.85rem; color: var(--text-gray); font-weight: 600; margin-top: 3px; }
+        .item-meta .when-today { color: var(--party); font-weight: 800; }
+        .item-actions { display: flex; gap: 8px; flex-shrink: 0; }
+        .icon-btn { background: rgba(0,0,0,0.05); border: none; width: 34px; height: 34px; border-radius: 9px; font-size: 1.05rem; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+        .icon-btn.edit { background: rgba(59, 130, 246, 0.1); }
+        .icon-btn.delete { background: rgba(239, 68, 68, 0.1); }
+        .greet-btn { background: #25d366; color: white; text-decoration: none; font-weight: 800; font-size: 0.85rem; padding: 8px 12px; border-radius: 10px; white-space: nowrap; flex-shrink: 0; }
+        .empty { padding: 18px; text-align: center; color: var(--text-gray); font-weight: 600; }
+
+        .hint-banner { background: rgba(59, 130, 246, 0.1); color: var(--primary-blue); padding: 13px 15px; border-radius: 12px; font-weight: 800; margin-bottom: 12px; border: 1px solid rgba(59, 130, 246, 0.2); cursor: pointer; font-size: 0.95rem; }
+        .stats { display: flex; gap: 10px; margin-bottom: 15px; }
+        .stat { flex: 1; padding: 14px 8px; text-align: center; }
+        .stat-num { font-size: 1.7rem; font-weight: 800; color: var(--primary-blue); }
+        .stat-label { font-size: 0.8rem; color: var(--text-gray); font-weight: 800; }
+
+        /* ייבוא */
+        .file-drop { display: block; border: 2px dashed #93c5fd; border-radius: 14px; padding: 22px 10px; text-align: center; cursor: pointer; color: var(--primary-blue); font-weight: 800; background: rgba(255,255,255,0.5); }
+        .file-drop input { display: none; }
+        .preview-row { display: flex; gap: 10px; padding: 9px 10px; border-bottom: 1px solid rgba(0,0,0,0.05); font-size: 0.9rem; align-items: flex-start; }
+        .preview-row.bad { background: rgba(239, 68, 68, 0.06); }
+        .preview-row .p-name { flex: 2; font-weight: 800; word-break: break-word; }
+        .preview-row .p-date { flex: 1; }
+        .preview-row .p-err { color: var(--danger); font-weight: 600; font-size: 0.8rem; }
+        .radio-line { display: flex; align-items: flex-start; gap: 10px; padding: 8px 0; font-weight: 600; cursor: pointer; }
+        .radio-line input { width: 20px; height: 20px; margin-top: 2px; accent-color: var(--primary-blue); flex-shrink: 0; }
+
+        .status-line { padding: 12px; border-radius: 12px; background: rgba(255,255,255,0.6); font-weight: 800; margin-bottom: 15px; text-align: center; }
+        .ios-guide ol { padding-right: 20px; line-height: 1.9; font-weight: 600; }
+
+        nav { position: fixed; bottom: 0; width: 100%; background: rgba(255, 255, 255, 0.92); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-top: 1px solid rgba(0, 0, 0, 0.05); display: flex; justify-content: space-around; box-shadow: 0 -4px 20px rgba(0,0,0,0.03); z-index: 10; padding-bottom: env(safe-area-inset-bottom); }
+        .nav-btn { background: none; border: none; padding: 14px 5px; flex-grow: 1; font-size: 0.8rem; color: var(--text-gray); cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 5px; font-weight: 800; position: relative; }
+        .nav-btn span { font-size: 1.4rem; transition: transform 0.3s; }
+        .nav-btn.active { color: var(--primary-blue); }
+        .nav-btn.active::before { content: ''; position: absolute; top: 0; left: 25%; width: 50%; height: 3px; background-color: var(--primary-blue); border-radius: 0 0 5px 5px; }
+        .nav-btn.active span { transform: translateY(-3px) scale(1.1); }
+
+        #customModal { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(5px); display: none; justify-content: center; align-items: center; z-index: 10000; }
+        .modal-content { background: rgba(255, 255, 255, 0.97); padding: 28px 22px; border-radius: 24px; text-align: center; width: 85%; max-width: 400px; box-shadow: 0 20px 40px rgba(0,0,0,0.2); }
+        .modal-content p { margin-bottom: 22px; font-size: 1.05rem; font-weight: 600; white-space: pre-line; line-height: 1.5; }
+
+        .full-screen { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; background: linear-gradient(135deg, var(--primary-blue), var(--light-blue)); color: white; padding: 20px; text-align: center; position: fixed; inset: 0; z-index: 9999; }
+        .login-box { width: 100%; max-width: 320px; margin-top: 25px; }
+        .login-box input { margin-bottom: 12px; text-align: center; }
+        .login-box a { color: white; opacity: 0.85; display: inline-block; margin-top: 15px; font-weight: 600; }
+        #login-error { color: #fecaca; margin-top: 12px; font-weight: 800; min-height: 1.4em; }
+        #app-container { display: none; height: 100%; flex-direction: column; }
+    </style>
+</head>
+<body>
+
+    <!-- טעינה -->
+    <div id="loading-screen" class="full-screen">
+        <div style="font-size: 3.5rem;">🎂</div>
+        <p style="margin-top: 10px; font-weight: 600;">טוען...</p>
+    </div>
+
+    <!-- כניסה -->
+    <div id="login-screen" class="full-screen" style="display: none;">
+        <div style="font-size: 3.5rem;">🎂</div>
+        <h1 style="font-size: 1.9rem; margin-top: 5px;">תזכורת ימי הולדת</h1>
+        <p style="opacity: 0.9;">כניסה למנהלים</p>
+        <div class="login-box">
+            <input type="email" id="login-email" placeholder="מייל" autocomplete="username" dir="ltr">
+            <input type="password" id="login-password" placeholder="סיסמה" autocomplete="current-password" dir="ltr">
+            <button class="btn btn-light" id="btn-login" onclick="doLogin()">כניסה</button>
+            <a href="#" onclick="forgotPassword(); return false;">שכחתי סיסמה</a>
+            <p id="login-error"></p>
+        </div>
+    </div>
+
+    <div id="app-container">
+        <header>
+            <h1>🎂 תזכורת ימי הולדת</h1>
+            <div id="date-badge" class="date-badge"></div>
+        </header>
+
+        <main>
+            <!-- ===== ראשי ===== -->
+            <div id="tab-home" class="tab-content active">
+                <div id="hints"></div>
+
+                <div class="glass-panel today-card">
+                    <div class="panel-title">🎉 ימי הולדת היום</div>
+                    <div id="list-today"></div>
+                </div>
+
+                <div class="stats">
+                    <div class="glass-panel stat"><div class="stat-num" id="stat-week">0</div><div class="stat-label">ב-7 הימים הקרובים</div></div>
+                    <div class="glass-panel stat"><div class="stat-num" id="stat-total">0</div><div class="stat-label">עובדים במערכת</div></div>
+                </div>
+
+                <h3 class="section-title">📅 השבוע הקרוב</h3>
+                <div class="glass-panel list-panel" id="list-week"></div>
+
+                <h3 class="section-title">🗓️ בהמשך החודש</h3>
+                <div class="glass-panel list-panel" id="list-month"></div>
+            </div>
+
+            <!-- ===== עובדים ===== -->
+            <div id="tab-employees" class="tab-content">
+                <h2>👥 ניהול עובדים</h2>
+
+                <div class="glass-panel" style="padding: 20px; margin-bottom: 20px;">
+                    <div class="panel-title" id="emp-form-title">הוספת עובד</div>
+                    <div class="input-group"><label>שם מלא</label><input type="text" id="emp-name" placeholder="שם העובד"></div>
+                    <div class="row">
+                        <div class="input-group"><label>יום</label><select id="emp-day"></select></div>
+                        <div class="input-group"><label>חודש</label><select id="emp-month"></select></div>
+                    </div>
+                    <div class="input-group"><label>מחלקה (אופציונלי)</label><input type="text" id="emp-dept" placeholder="למשל: ייצור"></div>
+                    <div class="input-group"><label>טלפון העובד (אופציונלי – לשליחת ברכה)</label><input type="tel" id="emp-phone" placeholder="050-0000000" dir="ltr" style="text-align: right;"></div>
+                    <button class="btn btn-primary" id="btn-save-emp" onclick="saveEmployee()">➕ הוסף עובד</button>
+                    <button class="btn btn-secondary" id="btn-cancel-edit" onclick="resetEmployeeForm()" style="display: none;">ביטול עריכה</button>
+                </div>
+
+                <div class="input-group"><input type="search" id="emp-search" placeholder="🔍 חיפוש לפי שם או מחלקה" oninput="renderEmployees()"></div>
+                <div class="muted" id="emp-count" style="margin-bottom: 8px; font-weight: 800;"></div>
+                <div class="glass-panel list-panel" id="emp-list"></div>
+            </div>
+
+            <!-- ===== ייבוא ===== -->
+            <div id="tab-import" class="tab-content">
+                <h2>📥 ייבוא מאקסל</h2>
+
+                <div class="glass-panel" style="padding: 20px; margin-bottom: 20px;">
+                    <div class="panel-title">1. הכנת הקובץ</div>
+                    <p class="muted" style="margin-bottom: 15px;">עמודות נדרשות: <b>שם מלא</b>, <b>תאריך לידה</b> (למשל 15/03/1990 או 15/03).<br>עמודות רשות: <b>מחלקה</b>, <b>טלפון</b>.<br>השורה הראשונה צריכה להיות כותרות.</p>
+                    <button class="btn btn-secondary" onclick="downloadTemplate()">📄 הורד קובץ תבנית</button>
+                </div>
+
+                <div class="glass-panel" style="padding: 20px; margin-bottom: 20px;">
+                    <div class="panel-title">2. בחירת קובץ</div>
+                    <label class="file-drop">
+                        <input type="file" id="import-file" accept=".xlsx,.xls,.csv" onchange="handleImportFile(this)">
+                        📂 לחץ לבחירת קובץ Excel
+                        <div class="muted" id="import-file-name" style="margin-top: 6px;"></div>
+                    </label>
+                </div>
+
+                <div class="glass-panel" id="import-preview-panel" style="padding: 20px; display: none;">
+                    <div class="panel-title">3. בדיקה ושמירה</div>
+                    <div class="status-line" id="import-summary"></div>
+                    <div id="import-preview" style="max-height: 320px; overflow-y: auto; margin-bottom: 15px; border-radius: 12px; background: rgba(255,255,255,0.5);"></div>
+                    <label class="radio-line"><input type="radio" name="import-mode" value="merge" checked><span>עדכון והוספה – עובד עם שם קיים יתעדכן, חדשים יתווספו</span></label>
+                    <label class="radio-line"><input type="radio" name="import-mode" value="replace"><span>החלפה מלאה – מחיקת כל הרשימה הקיימת והחלפה בקובץ</span></label>
+                    <button class="btn btn-success" id="btn-save-import" onclick="saveImport()" style="margin-top: 10px;">💾 שמור עובדים</button>
+                </div>
+            </div>
+
+            <!-- ===== הגדרות ===== -->
+            <div id="tab-settings" class="tab-content">
+                <h2>⚙️ הגדרות</h2>
+
+                <div class="glass-panel" style="padding: 20px; margin-bottom: 20px;">
+                    <div class="panel-title">🔔 התראות במכשיר הזה</div>
+                    <div class="status-line" id="push-status">בודק...</div>
+                    <button class="btn btn-primary" id="btn-enable-push" onclick="enablePush()">הפעל התראות</button>
+                    <button class="btn btn-secondary" id="btn-test" onclick="sendTestNotification()">שלח לי התראת בדיקה</button>
+                </div>
+
+                <div class="glass-panel ios-guide" id="ios-guide" style="padding: 20px; margin-bottom: 20px; display: none;">
+                    <div class="panel-title">📲 התקנה באייפון</div>
+                    <p class="muted" style="margin-bottom: 10px;">באייפון התראות עובדות רק אחרי התקנה למסך הבית:</p>
+                    <ol>
+                        <li>פתח את הקישור בדפדפן <b>Safari</b></li>
+                        <li>לחץ על כפתור השיתוף <b>⬆️</b></li>
+                        <li>בחר <b>"הוסף למסך הבית"</b></li>
+                        <li>פתח את האפליקציה מהאייקון החדש, היכנס ולחץ "הפעל התראות"</li>
+                    </ol>
+                </div>
+
+                <button class="btn btn-primary" id="btn-install" onclick="installApp()" style="display: none; margin-bottom: 20px;">📲 התקן את האפליקציה במכשיר</button>
+
+                <div class="glass-panel" style="padding: 20px; margin-bottom: 20px;">
+                    <div class="panel-title">👤 הפרטים שלי</div>
+                    <div class="input-group"><label>שם</label><input type="text" id="set-name" placeholder="השם שלך"></div>
+                    <div class="input-group"><label>טלפון (לקבלת וואטסאפ)</label><input type="tel" id="set-phone" placeholder="050-0000000" dir="ltr" style="text-align: right;"></div>
+                    <div class="input-group">
+                        <label>איך לקבל את התזכורת היומית?</label>
+                        <select id="set-channel">
+                            <option value="push">🔔 התראה מהאפליקציה (Push)</option>
+                            <option value="whatsapp">💬 הודעת וואטסאפ</option>
+                        </select>
+                    </div>
+                    <button class="btn btn-success" onclick="saveProfile()">💾 שמור פרטים</button>
+                </div>
+
+                <div class="glass-panel" style="padding: 20px; margin-bottom: 20px;">
+                    <div class="panel-title">🔐 חשבון</div>
+                    <p class="muted" style="margin-bottom: 15px;">מחובר כ: <b id="set-email" dir="ltr"></b></p>
+                    <div class="input-group"><label>סיסמה חדשה</label><input type="password" id="set-new-password" placeholder="לפחות 6 תווים" dir="ltr" autocomplete="new-password"></div>
+                    <button class="btn btn-secondary" onclick="changePassword()">שנה סיסמה</button>
+                    <button class="btn btn-danger" onclick="doLogout()">🚪 התנתק</button>
+                </div>
+            </div>
+        </main>
+
+        <nav>
+            <button class="nav-btn active" data-tab="home" onclick="switchTab('home')"><span>🎂</span>ראשי</button>
+            <button class="nav-btn" data-tab="employees" onclick="switchTab('employees')"><span>👥</span>עובדים</button>
+            <button class="nav-btn" data-tab="import" onclick="switchTab('import')"><span>📥</span>ייבוא</button>
+            <button class="nav-btn" data-tab="settings" onclick="switchTab('settings')"><span>⚙️</span>הגדרות</button>
+        </nav>
+    </div>
+
+    <div id="customModal"><div class="modal-content"><p id="modalMessage"></p><button class="btn btn-primary" style="padding: 12px;" onclick="closeModal()">אישור</button></div></div>
+
+    <!-- ספריות -->
+    <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-database-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-messaging-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-functions-compat.js"></script>
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+    <script src="config.js"></script>
+
+    <script>
+        // ================= הגדרה ראשונית =================
+        if (!window.firebaseConfig || firebaseConfig.apiKey === 'PASTE_HERE') {
+            document.getElementById('loading-screen').innerHTML = '<div style="font-size:3rem">⚙️</div><h2 style="color:white">חסרות הגדרות Firebase</h2><p>יש למלא את הקובץ config.js</p>';
+            throw new Error('config.js not filled');
+        }
+
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.database();
+        const fns = firebase.app().functions(FUNCTIONS_REGION);
+
+        const MONTHS = ['ינואר', 'פברואר', 'מרץ', 'אפריל', 'מאי', 'יוני', 'יולי', 'אוגוסט', 'ספטמבר', 'אוקטובר', 'נובמבר', 'דצמבר'];
+        const WEEKDAYS = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
+        const MAX_DAYS = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+
+        let currentUser = null;
+        let employees = {};
+        let profile = {};
+        let profileLoaded = false;
+        let profileRef = null;
+        let editId = null;
+        let importRows = [];
+        let deferredInstallPrompt = null;
+        let messagingInstance = null;
+
+        // ================= כלים =================
+        function esc(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+        function showAlert(msg) { document.getElementById('modalMessage').innerText = msg; document.getElementById('customModal').style.display = 'flex'; }
+        function closeModal() { document.getElementById('customModal').style.display = 'none'; }
+        function lsGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+        function lsSet(k, v) { try { v === null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch (e) {} }
+        function nameKey(n) { return String(n || '').trim().replace(/\s+/g, ' ').toLowerCase(); }
+        function isIOS() { return /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1); }
+        function isStandalone() { return window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true; }
+
+        function normalizePhone(p) {
+            let d = String(p || '').replace(/\D/g, '');
+            if (!d) return '';
+            if (d.startsWith('00')) d = d.slice(2);
+            if (d.startsWith('0')) d = '972' + d.slice(1);
+            else if (!d.startsWith('972') && d.length === 9) d = '972' + d;
+            return d.length >= 11 ? d : '';
+        }
+
+        // ================= תאריכים =================
+        function isLeap(y) { return (y % 4 === 0 && y % 100 !== 0) || y % 400 === 0; }
+        function todayLocal() { const n = new Date(); return new Date(n.getFullYear(), n.getMonth(), n.getDate()); }
+        function birthdayInYear(y, month, day) { if (month === 2 && day === 29 && !isLeap(y)) day = 28; return new Date(y, month - 1, day); }
+        function nextBirthday(e) {
+            const t = todayLocal();
+            let d = birthdayInYear(t.getFullYear(), +e.month, +e.day);
+            if (d < t) d = birthdayInYear(t.getFullYear() + 1, +e.month, +e.day);
+            return d;
+        }
+        function daysUntil(e) { return Math.round((nextBirthday(e) - todayLocal()) / 86400000); }
+        function dateText(e) { return `${e.day} ב${MONTHS[e.month - 1]}`; }
+        function whenText(du, date) {
+            if (du === 0) return '<span class="when-today">היום! 🎉</span>';
+            if (du === 1) return 'מחר';
+            if (du === 2) return 'מחרתיים';
+            return `בעוד ${du} ימים (יום ${WEEKDAYS[date.getDay()]})`;
+        }
+
+        // ================= כניסה / יציאה =================
+        auth.onAuthStateChanged(user => {
+            document.getElementById('loading-screen').style.display = 'none';
+            if (user) {
+                currentUser = user;
+                document.getElementById('login-screen').style.display = 'none';
+                document.getElementById('app-container').style.display = 'flex';
+                startApp();
+            } else {
+                stopApp();
+                currentUser = null;
+                document.getElementById('app-container').style.display = 'none';
+                document.getElementById('login-screen').style.display = 'flex';
+            }
+        });
+
+        function doLogin() {
+            const email = document.getElementById('login-email').value.trim();
+            const pass = document.getElementById('login-password').value;
+            const errEl = document.getElementById('login-error');
+            errEl.innerText = '';
+            if (!email || !pass) { errEl.innerText = 'יש למלא מייל וסיסמה'; return; }
+            const btn = document.getElementById('btn-login');
+            btn.disabled = true; btn.innerText = 'מתחבר...';
+            auth.signInWithEmailAndPassword(email, pass)
+                .catch(err => {
+                    const map = {
+                        'auth/invalid-credential': 'מייל או סיסמה שגויים',
+                        'auth/wrong-password': 'מייל או סיסמה שגויים',
+                        'auth/user-not-found': 'מייל או סיסמה שגויים',
+                        'auth/invalid-email': 'כתובת מייל לא תקינה',
+                        'auth/user-disabled': 'המשתמש חסום. פנה למנהל המערכת',
+                        'auth/too-many-requests': 'יותר מדי ניסיונות. נסה שוב בעוד כמה דקות',
+                        'auth/network-request-failed': 'אין חיבור לאינטרנט'
+                    };
+                    errEl.innerText = map[err.code] || ('שגיאה: ' + err.message);
+                })
+                .finally(() => { btn.disabled = false; btn.innerText = 'כניסה'; });
+        }
+        document.getElementById('login-password').addEventListener('keypress', e => { if (e.key === 'Enter') doLogin(); });
+
+        function forgotPassword() {
+            const email = document.getElementById('login-email').value.trim();
+            if (!email) return showAlert('הקלד את המייל שלך בשדה המייל ולחץ שוב על "שכחתי סיסמה".');
+            auth.sendPasswordResetEmail(email)
+                .then(() => showAlert('אם המייל רשום במערכת, נשלח אליו קישור לאיפוס סיסמה.'))
+                .catch(() => showAlert('אם המייל רשום במערכת, נשלח אליו קישור לאיפוס סיסמה.'));
+        }
+
+        async function doLogout() {
+            if (!confirm('להתנתק? התראות לא יגיעו למכשיר הזה עד שתתחבר שוב.')) return;
+            const token = lsGet('fcmToken');
+            if (token && currentUser) {
+                try { await db.ref(`managers/${currentUser.uid}/fcmTokens/${token}`).remove(); } catch (e) {}
+                lsSet('fcmToken', null);
+            }
+            auth.signOut();
+        }
+
+        function changePassword() {
+            const pass = document.getElementById('set-new-password').value;
+            if (pass.length < 6) return showAlert('הסיסמה צריכה להכיל לפחות 6 תווים.');
+            currentUser.updatePassword(pass)
+                .then(() => { document.getElementById('set-new-password').value = ''; showAlert('✅ הסיסמה שונתה בהצלחה.'); })
+                .catch(err => {
+                    if (err.code === 'auth/requires-recent-login') showAlert('מטעמי אבטחה יש להתנתק, להתחבר מחדש ואז לשנות סיסמה.');
+                    else showAlert('שגיאה בשינוי הסיסמה: ' + err.message);
+                });
+        }
+
+        // ================= הפעלת האפליקציה =================
+        function startApp() {
+            document.getElementById('date-badge').innerText = new Date().toLocaleDateString('he-IL', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+            document.getElementById('set-email').innerText = currentUser.email;
+            fillDateSelects();
+            document.getElementById('ios-guide').style.display = (isIOS() && !isStandalone()) ? 'block' : 'none';
+
+            db.ref('employees').on('value',
+                snap => { employees = snap.val() || {}; renderHome(); renderEmployees(); },
+                err => showAlert('אין הרשאה לקרוא נתונים: ' + err.message));
+
+            profileRef = db.ref('managers/' + currentUser.uid);
+            profileLoaded = false;
+            profileRef.once('value').then(snap => {
+                if (!snap.exists()) {
+                    return profileRef.set({ email: currentUser.email, name: '', phone: '', channel: 'push', createdAt: firebase.database.ServerValue.TIMESTAMP });
+                }
+            }).then(() => {
+                profileRef.on('value', snap => {
+                    profile = snap.val() || {};
+                    if (!profileLoaded) {
+                        document.getElementById('set-name').value = profile.name || '';
+                        document.getElementById('set-phone').value = profile.phone || '';
+                        document.getElementById('set-channel').value = profile.channel || 'push';
+                        profileLoaded = true;
+                    }
+                    updatePushStatus();
+                    renderHints();
+                });
+                refreshPushToken();
+            }).catch(err => showAlert('שגיאה בטעינת הפרופיל: ' + err.message));
+        }
+
+        function stopApp() {
+            db.ref('employees').off();
+            if (profileRef) profileRef.off();
+            employees = {}; profile = {}; profileRef = null;
+        }
+
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.nav-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tabId));
+            document.getElementById('tab-' + tabId).classList.add('active');
+            document.querySelector('main').scrollTop = 0;
+        }
+
+        // ================= מסך ראשי =================
+        function greetLink(e) {
+            const first = String(e.name).trim().split(/\s+/)[0];
+            const text = `היי ${first}, מזל טוב ליום ההולדת! 🎂🎉\nמאחלים לך שנה נפלאה, בריאות, הצלחה והרבה רגעים טובים.`;
+            const phone = normalizePhone(e.phone);
+            return phone ? `https://wa.me/${phone}?text=${encodeURIComponent(text)}` : `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
+        }
+
+        function bdayItem(e) {
+            return `<div class="list-item">
+                <div class="item-icon ${e.du === 0 ? 'today' : ''}">🎂</div>
+                <div class="item-content">
+                    <div class="item-title">${esc(e.name)}</div>
+                    <div class="item-meta">${dateText(e)} • ${whenText(e.du, e.next)}${e.department ? ' • ' + esc(e.department) : ''}</div>
+                </div>
+                <a class="greet-btn" href="${greetLink(e)}" target="_blank" rel="noopener">💬 ברכה</a>
+            </div>`;
+        }
+
+        function renderHome() {
+            const list = Object.entries(employees)
+                .map(([id, e]) => ({ id, ...e, du: daysUntil(e), next: nextBirthday(e) }))
+                .sort((a, b) => a.du - b.du || String(a.name).localeCompare(String(b.name), 'he'));
+            const today = list.filter(e => e.du === 0);
+            const week = list.filter(e => e.du >= 1 && e.du <= 7);
+            const month = list.filter(e => e.du >= 8 && e.du <= 31);
+            const noEmployees = list.length === 0;
+
+            document.getElementById('list-today').innerHTML = today.length ? today.map(bdayItem).join('')
+                : `<div class="empty">${noEmployees ? 'עוד אין עובדים במערכת – עבור ללשונית "ייבוא" 📥' : 'אין ימי הולדת היום 🙂'}</div>`;
+            document.getElementById('list-week').innerHTML = week.length ? week.map(bdayItem).join('') : '<div class="empty">אין ימי הולדת השבוע</div>';
+            document.getElementById('list-month').innerHTML = month.length ? month.map(bdayItem).join('') : '<div class="empty">אין ימי הולדת בהמשך החודש</div>';
+            document.getElementById('stat-week').innerText = today.length + week.length;
+            document.getElementById('stat-total').innerText = list.length;
+        }
+
+        function renderHints() {
+            const hints = [];
+            if (isIOS() && !isStandalone()) hints.push('📲 התקן את האפליקציה למסך הבית כדי לקבל התראות – לחץ להסבר');
+            else if (!lsGet('fcmToken') && profile.channel !== 'whatsapp') hints.push('🔔 עדיין לא הפעלת התראות במכשיר הזה – לחץ להפעלה');
+            if (!profile.name) hints.push('👤 השלם את השם והטלפון שלך בהגדרות');
+            document.getElementById('hints').innerHTML = hints.map(h => `<div class="hint-banner" onclick="switchTab('settings')">${h}</div>`).join('');
+        }
+
+        // ================= עובדים =================
+        function fillDateSelects() {
+            const daySel = document.getElementById('emp-day');
+            const monSel = document.getElementById('emp-month');
+            if (daySel.options.length) return;
+            daySel.innerHTML = '<option value="">יום</option>' + Array.from({ length: 31 }, (_, i) => `<option value="${i + 1}">${i + 1}</option>`).join('');
+            monSel.innerHTML = '<option value="">חודש</option>' + MONTHS.map((m, i) => `<option value="${i + 1}">${m}</option>`).join('');
+        }
+
+        function renderEmployees() {
+            const q = nameKey(document.getElementById('emp-search').value);
+            const all = Object.entries(employees).map(([id, e]) => ({ id, ...e }));
+            const list = all
+                .filter(e => !q || nameKey(e.name).includes(q) || nameKey(e.department).includes(q))
+                .sort((a, b) => a.month - b.month || a.day - b.day || String(a.name).localeCompare(String(b.name), 'he'));
+            document.getElementById('emp-count').innerText = q ? `נמצאו ${list.length} מתוך ${all.length} עובדים` : `${all.length} עובדים`;
+            const container = document.getElementById('emp-list');
+            if (!list.length) { container.innerHTML = `<div class="empty">${all.length ? 'לא נמצאו תוצאות' : 'אין עובדים עדיין'}</div>`; return; }
+            container.innerHTML = list.map(e => `<div class="list-item">
+                <div class="item-icon">👤</div>
+                <div class="item-content">
+                    <div class="item-title">${esc(e.name)}</div>
+                    <div class="item-meta">🎂 ${dateText(e)}${e.department ? ' • ' + esc(e.department) : ''}${e.phone ? ' • 📞' : ''}</div>
+                </div>
+                <div class="item-actions">
+                    <button class="icon-btn edit" onclick="editEmployee('${e.id}')" title="ערוך">✏️</button>
+                    <button class="icon-btn delete" onclick="deleteEmployee('${e.id}')" title="מחק">🗑️</button>
+                </div>
+            </div>`).join('');
+        }
+
+        function saveEmployee() {
+            const name = document.getElementById('emp-name').value.trim().replace(/\s+/g, ' ');
+            const day = parseInt(document.getElementById('emp-day').value);
+            const month = parseInt(document.getElementById('emp-month').value);
+            const department = document.getElementById('emp-dept').value.trim();
+            const phone = document.getElementById('emp-phone').value.trim();
+            if (!name) return showAlert('יש להזין שם.');
+            if (!day || !month) return showAlert('יש לבחור יום וחודש.');
+            if (day > MAX_DAYS[month - 1]) return showAlert(`בחודש ${MONTHS[month - 1]} אין ${day} ימים.`);
+            if (!editId && Object.values(employees).some(e => nameKey(e.name) === nameKey(name)) && !confirm(`כבר קיים עובד בשם "${name}". להוסיף בכל זאת?`)) return;
+
+            const data = { name, day, month, department, phone, updatedAt: firebase.database.ServerValue.TIMESTAMP, updatedBy: currentUser.email };
+            const ref = editId ? db.ref('employees/' + editId) : db.ref('employees').push();
+            ref.set(data)
+                .then(() => { showAlert(editId ? '✅ העובד עודכן' : '✅ העובד נוסף'); resetEmployeeForm(); })
+                .catch(err => showAlert('שגיאה בשמירה: ' + err.message));
+        }
+
+        function editEmployee(id) {
+            const e = employees[id]; if (!e) return;
+            editId = id;
+            document.getElementById('emp-name').value = e.name || '';
+            document.getElementById('emp-day').value = e.day || '';
+            document.getElementById('emp-month').value = e.month || '';
+            document.getElementById('emp-dept').value = e.department || '';
+            document.getElementById('emp-phone').value = e.phone || '';
+            document.getElementById('emp-form-title').innerText = '✏️ עריכת עובד';
+            document.getElementById('btn-save-emp').innerText = '💾 שמור שינויים';
+            document.getElementById('btn-cancel-edit').style.display = 'block';
+            document.querySelector('main').scrollTop = 0;
+        }
+
+        function resetEmployeeForm() {
+            editId = null;
+            ['emp-name', 'emp-day', 'emp-month', 'emp-dept', 'emp-phone'].forEach(id => document.getElementById(id).value = '');
+            document.getElementById('emp-form-title').innerText = 'הוספת עובד';
+            document.getElementById('btn-save-emp').innerText = '➕ הוסף עובד';
+            document.getElementById('btn-cancel-edit').style.display = 'none';
+        }
+
+        function deleteEmployee(id) {
+            const e = employees[id]; if (!e) return;
+            if (!confirm(`למחוק את ${e.name}?`)) return;
+            db.ref('employees/' + id).remove().catch(err => showAlert('שגיאה במחיקה: ' + err.message));
+            if (editId === id) resetEmployeeForm();
+        }
+
+        // ================= ייבוא מאקסל =================
+        function downloadTemplate() {
+            const ws = XLSX.utils.aoa_to_sheet([
+                ['שם מלא', 'תאריך לידה', 'מחלקה', 'טלפון'],
+                ['ישראל ישראלי', '15/03', 'ייצור', '050-1234567']
+            ]);
+            ws['!cols'] = [{ wch: 22 }, { wch: 14 }, { wch: 16 }, { wch: 16 }];
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'עובדים');
+            wb.Workbook = { Views: [{ RTL: true }] };
+            XLSX.writeFile(wb, 'employees-template.xlsx');
+        }
+
+        function findColumns(header) {
+            const h = header.map(x => String(x ?? '').trim().toLowerCase());
+            const find = pred => h.findIndex(pred);
+            const first = find(x => x.includes('פרטי') || x.includes('first'));
+            const last = find(x => x.includes('משפחה') || x.includes('last'));
+            const date = find(x => x.includes('תאריך') || x.includes('לידה') || x.includes('הולדת') || x.includes('birth') || x.includes('date'));
+            const full = find((x, i) => i !== first && i !== last && i !== date && (x.includes('שם') || x.includes('name')));
+            const dept = find(x => x.includes('מחלקה') || x.includes('צוות') || x.includes('department') || x.includes('dept'));
+            const phone = find(x => x.includes('טלפון') || x.includes('נייד') || x.includes('phone') || x.includes('mobile'));
+            return { first, last, full, date, dept, phone };
+        }
+
+        function parseBirthDate(v) {
+            if (v === null || v === undefined || v === '') return null;
+            if (typeof v === 'number') {
+                const dc = XLSX.SSF.parse_date_code(v);
+                return dc ? { day: dc.d, month: dc.m } : null;
+            }
+            if (v instanceof Date) return { day: v.getDate(), month: v.getMonth() + 1 };
+            const s = String(v).trim();
+            let m = s.match(/^(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})/);
+            if (m) return { day: +m[3], month: +m[2] };
+            m = s.match(/^(\d{1,2})[-\/.](\d{1,2})(?:[-\/.](\d{2,4}))?$/);
+            if (m) return { day: +m[1], month: +m[2] };
+            return null;
+        }
+
+        function handleImportFile(input) {
+            const file = input.files[0];
+            if (!file) return;
+            document.getElementById('import-file-name').innerText = file.name;
+            const reader = new FileReader();
+            reader.onload = ev => {
+                try {
+                    const wb = XLSX.read(ev.target.result, { type: 'array', raw: true });
+                    const ws = wb.Sheets[wb.SheetNames[0]];
+                    const rows = XLSX.utils.sheet_to_json(ws, { header: 1, raw: true, defval: '', blankrows: false });
+                    parseImportRows(rows);
+                } catch (err) {
+                    showAlert('לא הצלחתי לקרוא את הקובץ: ' + err.message);
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function parseImportRows(rows) {
+            if (rows.length < 2) return showAlert('הקובץ ריק או שחסרה שורת כותרות.');
+            const c = findColumns(rows[0]);
+            if ((c.full < 0 && c.first < 0) || c.date < 0) {
+                return showAlert('לא נמצאו עמודות "שם" ו"תאריך לידה" בשורה הראשונה.\nמומלץ להוריד את קובץ התבנית ולהעתיק אליו את הנתונים.');
+            }
+            importRows = rows.slice(1).map((r, i) => {
+                const cell = idx => idx >= 0 ? String(r[idx] ?? '').trim() : '';
+                const name = (c.full >= 0 ? cell(c.full) : `${cell(c.first)} ${cell(c.last)}`).replace(/\s+/g, ' ').trim();
+                const d = parseBirthDate(c.date >= 0 ? r[c.date] : '');
+                const row = { line: i + 2, name, department: cell(c.dept).slice(0, 100), phone: cell(c.phone).slice(0, 30), ok: true, error: '' };
+                if (!name && !d) { row.skip = true; return row; }
+                if (!name) { row.ok = false; row.error = 'חסר שם'; }
+                else if (name.length > 100) { row.ok = false; row.error = 'שם ארוך מדי'; }
+                else if (!d) { row.ok = false; row.error = 'תאריך לא מזוהה'; }
+                else if (d.month < 1 || d.month > 12 || d.day < 1 || d.day > MAX_DAYS[d.month - 1]) { row.ok = false; row.error = 'תאריך לא תקין'; }
+                else { row.day = d.day; row.month = d.month; }
+                return row;
+            }).filter(r => !r.skip);
+
+            const good = importRows.filter(r => r.ok).length;
+            const bad = importRows.length - good;
+            document.getElementById('import-summary').innerHTML = `✅ ${good} שורות תקינות${bad ? ` &nbsp;|&nbsp; <span style="color:var(--danger)">❌ ${bad} עם שגיאות (לא יישמרו)</span>` : ''}`;
+            document.getElementById('import-preview').innerHTML = importRows.map(r => `<div class="preview-row ${r.ok ? '' : 'bad'}">
+                <div class="p-name">${r.ok ? '✅' : '❌'} ${esc(r.name || '(ללא שם)')}${r.department ? `<div class="muted">${esc(r.department)}</div>` : ''}</div>
+                <div class="p-date">${r.ok ? `${r.day}/${r.month}` : `<div class="p-err">שורה ${r.line}: ${r.error}</div>`}</div>
+            </div>`).join('');
+            document.getElementById('btn-save-import').disabled = good === 0;
+            document.getElementById('import-preview-panel').style.display = 'block';
+        }
+
+        async function saveImport() {
+            const valid = importRows.filter(r => r.ok);
+            if (!valid.length) return;
+            const mode = document.querySelector('input[name="import-mode"]:checked').value;
+            const existingCount = Object.keys(employees).length;
+            if (mode === 'replace' && existingCount && !confirm(`פעולה זו תמחק את כל ${existingCount} העובדים הקיימים ותחליף אותם ב-${valid.length} עובדים מהקובץ.\nלהמשיך?`)) return;
+
+            const btn = document.getElementById('btn-save-import');
+            btn.disabled = true; btn.innerText = 'שומר...';
+            const stamp = firebase.database.ServerValue.TIMESTAMP;
+            const by = currentUser.email;
+            try {
+                if (mode === 'replace') {
+                    const obj = {};
+                    valid.forEach(r => { obj[db.ref('employees').push().key] = { name: r.name, day: r.day, month: r.month, department: r.department, phone: r.phone, updatedAt: stamp, updatedBy: by }; });
+                    await db.ref('employees').set(obj);
+                    showAlert(`✅ הרשימה הוחלפה – ${valid.length} עובדים נשמרו.`);
+                } else {
+                    const byName = {};
+                    Object.entries(employees).forEach(([id, e]) => byName[nameKey(e.name)] = id);
+                    const updates = {};
+                    let added = 0, updated = 0;
+                    valid.forEach(r => {
+                        const k = nameKey(r.name);
+                        let id = byName[k];
+                        const base = (id && employees[id]) || {};
+                        if (id) updated++; else { id = db.ref('employees').push().key; byName[k] = id; added++; }
+                        updates['employees/' + id] = {
+                            name: r.name, day: r.day, month: r.month,
+                            department: r.department || base.department || '',
+                            phone: r.phone || base.phone || '',
+                            updatedAt: stamp, updatedBy: by
+                        };
+                    });
+                    await db.ref().update(updates);
+                    showAlert(`✅ הייבוא הושלם\n${added} עובדים נוספו, ${updated} עודכנו.`);
+                }
+                importRows = [];
+                document.getElementById('import-file').value = '';
+                document.getElementById('import-file-name').innerText = '';
+                document.getElementById('import-preview-panel').style.display = 'none';
+                switchTab('employees');
+            } catch (err) {
+                showAlert('שגיאה בשמירה: ' + err.message);
+            } finally {
+                btn.disabled = false; btn.innerText = '💾 שמור עובדים';
+            }
+        }
+
+        // ================= הגדרות ופרופיל =================
+        function saveProfile() {
+            const name = document.getElementById('set-name').value.trim();
+            const phone = document.getElementById('set-phone').value.trim();
+            const channel = document.getElementById('set-channel').value;
+            if (channel === 'whatsapp' && !normalizePhone(phone)) return showAlert('כדי לקבל וואטסאפ יש להזין מספר טלפון תקין.');
+            profileRef.update({ name, phone, channel })
+                .then(() => showAlert('✅ הפרטים נשמרו'))
+                .catch(err => showAlert('שגיאה בשמירה: ' + err.message));
+        }
+
+        // ================= התראות Push =================
+        async function pushSupported() {
+            if (!('Notification' in window) || !('serviceWorker' in navigator)) return false;
+            try { return await Promise.resolve(firebase.messaging.isSupported()); } catch (e) { return false; }
+        }
+
+        function getMessaging() {
+            if (!messagingInstance) {
+                messagingInstance = firebase.messaging();
+                messagingInstance.onMessage(payload => {
+                    const n = payload.notification || {};
+                    showAlert(`${n.title || '🔔'}\n${n.body || ''}`);
+                });
+            }
+            return messagingInstance;
+        }
+
+        async function registerToken() {
+            const reg = await navigator.serviceWorker.register('firebase-messaging-sw.js');
+            await navigator.serviceWorker.ready;
+            const token = await getMessaging().getToken({ vapidKey: VAPID_KEY, serviceWorkerRegistration: reg });
+            if (!token) throw new Error('לא התקבל מזהה התראות');
+            const old = lsGet('fcmToken');
+            const updates = {};
+            if (old && old !== token) updates[`managers/${currentUser.uid}/fcmTokens/${old}`] = null;
+            updates[`managers/${currentUser.uid}/fcmTokens/${token}`] = true;
+            await db.ref().update(updates);
+            lsSet('fcmToken', token);
+            return token;
+        }
+
+        async function enablePush() {
+            if (isIOS() && !isStandalone()) return showAlert('באייפון צריך קודם להתקין את האפליקציה למסך הבית (ההסבר מופיע למטה), לפתוח אותה מהאייקון ורק אז להפעיל התראות.');
+            if (!(await pushSupported())) return showAlert('הדפדפן הזה לא תומך בהתראות. נסה Chrome באנדרואיד או במחשב, או Safari באייפון אחרי התקנה למסך הבית.');
+            const btn = document.getElementById('btn-enable-push');
+            btn.disabled = true; btn.innerText = 'מפעיל...';
+            try {
+                const perm = await Notification.requestPermission();
+                if (perm !== 'granted') { showAlert('ההתראות נחסמו. כדי לאפשר אותן יש להיכנס להגדרות הדפדפן/המכשיר ולאשר התראות לאתר הזה.'); return; }
+                await registerToken();
+                showAlert('✅ ההתראות הופעלו במכשיר הזה!\nאפשר ללחוץ על "שלח לי התראת בדיקה" כדי לוודא.');
+            } catch (err) {
+                showAlert('שגיאה בהפעלת התראות: ' + err.message);
+            } finally {
+                btn.disabled = false; updatePushStatus(); renderHints();
+            }
+        }
+
+        // מרענן את מזהה ההתראות בשקט בכל כניסה (אם כבר אושר בעבר)
+        async function refreshPushToken() {
+            if (!(await pushSupported()) || Notification.permission !== 'granted') return;
+            try { await registerToken(); } catch (e) { console.warn('refresh token failed', e); }
+            updatePushStatus(); renderHints();
+        }
+
+        async function updatePushStatus() {
+            const el = document.getElementById('push-status');
+            const btn = document.getElementById('btn-enable-push');
+            const devices = Object.keys(profile.fcmTokens || {}).length;
+            const devText = devices ? `<div class="muted" style="margin-top:4px">${devices} מכשירים רשומים להתראות</div>` : '';
+            if (!(await pushSupported())) {
+                el.innerHTML = (isIOS() && !isStandalone() ? '📲 יש להתקין למסך הבית כדי להפעיל התראות' : '⚠️ הדפדפן הזה לא תומך בהתראות') + devText;
+                btn.style.display = isIOS() && !isStandalone() ? 'block' : 'none';
+                return;
+            }
+            const perm = Notification.permission;
+            const token = lsGet('fcmToken');
+            if (perm === 'granted' && token) { el.innerHTML = '<span style="color:var(--success)">✅ התראות פעילות במכשיר הזה</span>' + devText; btn.innerText = '🔄 רענן התראות'; }
+            else if (perm === 'denied') { el.innerHTML = '<span style="color:var(--danger)">🚫 ההתראות חסומות – יש לאשר בהגדרות הדפדפן</span>' + devText; btn.innerText = 'הפעל התראות'; }
+            else { el.innerHTML = '⚪ ההתראות עדיין לא הופעלו במכשיר הזה' + devText; btn.innerText = 'הפעל התראות'; }
+            btn.style.display = 'block';
+        }
+
+        async function sendTestNotification() {
+            const btn = document.getElementById('btn-test');
+            btn.disabled = true; btn.innerText = 'שולח...';
+            try {
+                const res = await fns.httpsCallable('sendTestNotification')({});
+                showAlert(res.data.message);
+            } catch (err) {
+                showAlert('שגיאה בשליחת הבדיקה: ' + err.message + '\n(האם פונקציות השרת הועלו?)');
+            } finally {
+                btn.disabled = false; btn.innerText = 'שלח לי התראת בדיקה';
+            }
+        }
+
+        // ================= התקנה (אנדרואיד/מחשב) =================
+        window.addEventListener('beforeinstallprompt', e => {
+            e.preventDefault();
+            deferredInstallPrompt = e;
+            document.getElementById('btn-install').style.display = 'block';
+        });
+        function installApp() {
+            if (!deferredInstallPrompt) return;
+            deferredInstallPrompt.prompt();
+            deferredInstallPrompt.userChoice.finally(() => {
+                deferredInstallPrompt = null;
+                document.getElementById('btn-install').style.display = 'none';
+            });
+        }
+    </script>
+</body>
+</html>
