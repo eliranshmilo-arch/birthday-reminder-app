@@ -102,8 +102,9 @@ function normalizePhone(p) {
 
 // ---------- ערוצי שליחה ----------
 async function sendPush(uid, manager, title, body) {
-  const tokens = Object.keys(manager.fcmTokens || {});
-  if (!tokens.length) return { ok: false, reason: 'no-tokens' };
+  const devices = manager.fcmTokens || {};
+  const tokens = Object.keys(devices);
+  if (!tokens.length) return { ok: false, reason: 'no-tokens', devices: [] };
 
   const webpush = { notification: { dir: 'rtl', lang: 'he' } };
   if (APP_URL) {
@@ -113,17 +114,23 @@ async function sendPush(uid, manager, title, body) {
 
   const res = await admin.messaging().sendEachForMulticast({ tokens, notification: { title, body }, webpush });
 
-  // ניקוי מכשירים שכבר לא רשומים
+  // דוח לכל מכשיר + ניקוי מכשירים שכבר לא רשומים
   const cleanup = {};
-  res.responses.forEach((r, i) => {
-    const code = r.error && r.error.code;
+  const report = res.responses.map((r, i) => {
+    const info = devices[tokens[i]];
+    const label = (info && typeof info === 'object' && info.label) || 'מכשיר לא מזוהה';
+    const code = r.error ? (r.error.code || r.error.message) : '';
     if (code === 'messaging/registration-token-not-registered' || code === 'messaging/invalid-registration-token') {
       cleanup[`managers/${uid}/fcmTokens/${tokens[i]}`] = null;
     }
+    return { label, ok: r.success, error: code };
   });
   if (Object.keys(cleanup).length) await db.ref().update(cleanup);
+  logger.info(`Push למנהל ${uid}: ${res.successCount}/${tokens.length}`, report);
 
-  return res.successCount > 0 ? { ok: true } : { ok: false, reason: 'push-failed' };
+  return res.successCount > 0
+    ? { ok: true, devices: report }
+    : { ok: false, reason: 'push-failed', devices: report };
 }
 
 async function sendWhatsApp(manager, text) {
@@ -160,10 +167,16 @@ async function notifyManager(uid, manager, title, body) {
     } catch (e) {
       r = { ok: false, reason: String(e.message || e).slice(0, 200) };
     }
-    attempts.push({ channel: ch, ok: r.ok, reason: r.reason || '' });
+    attempts.push({ channel: ch, ok: r.ok, reason: r.reason || '', devices: r.devices || [] });
     if (r.ok) return { ok: true, channel: ch, attempts };
   }
   return { ok: false, channel: null, attempts };
+}
+
+function deviceReport(attempts) {
+  const push = attempts.find((a) => a.channel === 'push');
+  if (!push || !push.devices.length) return '';
+  return '\n\n' + push.devices.map((d) => `${d.ok ? '✅' : '❌'} ${d.label}${d.ok ? '' : ` (${d.error})`}`).join('\n');
 }
 
 // ---------- ההתראה היומית ----------
@@ -211,11 +224,13 @@ exports.sendTestNotification = onCall(async (request) => {
   if (result.ok) {
     return {
       ok: true,
-      message: result.channel === 'push' ? '✅ נשלחה התראת Push למכשירים שלך' : '✅ נשלחה הודעת וואטסאפ',
+      message: result.channel === 'push'
+        ? 'נשלחה התראת Push. תוצאה לפי מכשיר:' + deviceReport(result.attempts)
+        : '✅ נשלחה הודעת וואטסאפ',
     };
   }
   const details = result.attempts
     .map((a) => `${a.channel === 'push' ? 'Push' : 'וואטסאפ'}: ${REASONS[a.reason] || a.reason}`)
     .join('\n');
-  return { ok: false, message: '❌ השליחה נכשלה\n' + details };
+  return { ok: false, message: '❌ השליחה נכשלה\n' + details + deviceReport(result.attempts) };
 });
