@@ -30,6 +30,9 @@
       "$uid": {
         ".read": "auth != null && auth.uid === $uid",
         ".write": "auth != null && (auth.uid === $uid || root.child('admins').child(auth.uid).val() === true)",
+        "notifyHour": {
+          ".validate": "newData.isNumber() && (newData.val() === 7 || newData.val() === 8)"
+        },
         "status": {
           ".validate": "newData.isString() && ((root.child('admins').child(auth.uid).val() === true && (newData.val() === 'pending' || newData.val() === 'approved' || newData.val() === 'rejected')) || (!data.exists() && newData.val() === 'pending') || data.val() === newData.val())"
         }

@@ -1,6 +1,6 @@
 /**
  * פונקציות השרת של אפליקציית תזכורת ימי הולדת
- *  - dailyBirthdayAlerts: רצה כל יום ב-08:00 שעון ישראל ושולחת התראות למנהלים
+ *  - dailyBirthdayAlerts: רצה כל יום ב-07:00 וב-08:00 שעון ישראל ושולחת לכל מנהל בשעה שבחר
  *  - sendTestNotification: כפתור "שלח התראת בדיקה" מתוך האפליקציה
  *  - onManagerStatusChange: התראה לאדמין על הרשמה חדשה, ולמנהל כשאושר
  */
@@ -40,10 +40,16 @@ const isLeap = (y) => (y % 4 === 0 && y % 100 !== 0) || y % 400 === 0;
 function israelToday() {
   const parts = new Intl.DateTimeFormat('en-US', {
     timeZone: TZ, year: 'numeric', month: 'numeric', day: 'numeric', weekday: 'short',
+    hour: 'numeric', hourCycle: 'h23',
   }).formatToParts(new Date());
   const get = (t) => parts.find((p) => p.type === t).value;
-  return { y: +get('year'), m: +get('month'), d: +get('day'), weekday: get('weekday') };
+  return { y: +get('year'), m: +get('month'), d: +get('day'), weekday: get('weekday'), hour: +get('hour') };
 }
+
+// שעת התזכורת שהמנהל בחר (7 או 8). ברירת מחדל: 8
+const NOTIFY_HOURS = [7, 8];
+const DEFAULT_HOUR = 8;
+const managerHour = (m) => (NOTIFY_HOURS.includes(m.notifyHour) ? m.notifyHour : DEFAULT_HOUR);
 
 function addDays(date, k) {
   const dt = new Date(Date.UTC(date.y, date.m - 1, date.d + k));
@@ -182,8 +188,13 @@ function deviceReport(attempts) {
 }
 
 // ---------- ההתראה היומית ----------
-exports.dailyBirthdayAlerts = onSchedule({ schedule: '0 8 * * *', timeZone: TZ }, async () => {
+// רצה ב-07:00 וב-08:00. בכל ריצה נשלח רק למנהלים שבחרו את השעה הנוכחית.
+exports.dailyBirthdayAlerts = onSchedule({ schedule: '0 7,8 * * *', timeZone: TZ }, async () => {
   const today = israelToday();
+  if (!NOTIFY_HOURS.includes(today.hour)) {
+    logger.warn(`ריצה בשעה לא צפויה (${today.hour}) – מדלג`);
+    return;
+  }
   const targets = targetDays(today);
   if (!targets.length) {
     logger.info('סוף שבוע – לא נשלחות התראות');
@@ -208,6 +219,7 @@ exports.dailyBirthdayAlerts = onSchedule({ schedule: '0 8 * * *', timeZone: TZ }
   for (const [uid, manager] of Object.entries(managers)) {
     const allowed = manager.status === 'approved' || admins[uid] === true;
     if (!allowed) continue; // רק מנהלים מאושרים
+    if (managerHour(manager) !== today.hour) continue; // לא השעה שהמנהל בחר
     if (log[uid] && log[uid].ok) continue; // כבר נשלח היום
     const result = await notifyManager(uid, manager, title, body);
     await db.ref(`sentLog/${dayKey}/${uid}`).set({

@@ -293,6 +293,13 @@
                             <option value="whatsapp">💬 הודעת וואטסאפ</option>
                         </select>
                     </div>
+                    <div class="input-group">
+                        <label>באיזו שעה לקבל את התזכורת?</label>
+                        <select id="set-hour">
+                            <option value="7">🌅 07:00 בבוקר</option>
+                            <option value="8">☀️ 08:00 בבוקר</option>
+                        </select>
+                    </div>
                     <button class="btn btn-success" onclick="saveProfile()">💾 שמור פרטים</button>
                 </div>
 
@@ -519,7 +526,7 @@
                 if (!snap.exists()) {
                     const p = pendingSignup || {};
                     await profileRef.set({
-                        email: currentUser.email, name: p.name || '', phone: '', channel: 'push',
+                        email: currentUser.email, name: p.name || '', phone: '', channel: 'push', notifyHour: 8,
                         status: 'pending', createdAt: firebase.database.ServerValue.TIMESTAMP
                     });
                 }
@@ -535,6 +542,7 @@
                     document.getElementById('set-name').value = profile.name || '';
                     document.getElementById('set-phone').value = profile.phone || '';
                     document.getElementById('set-channel').value = profile.channel || 'push';
+                    document.getElementById('set-hour').value = String(profile.notifyHour === 7 ? 7 : 8);
                     profileLoaded = true;
                 }
                 updatePushStatus();
@@ -921,8 +929,9 @@
             const name = document.getElementById('set-name').value.trim();
             const phone = document.getElementById('set-phone').value.trim();
             const channel = document.getElementById('set-channel').value;
+            const notifyHour = Number(document.getElementById('set-hour').value) === 7 ? 7 : 8;
             if (channel === 'whatsapp' && !normalizePhone(phone)) return showAlert('כדי לקבל וואטסאפ יש להזין מספר טלפון תקין.');
-            profileRef.update({ name, phone, channel })
+            profileRef.update({ name, phone, channel, notifyHour })
                 .then(() => showAlert('✅ הפרטים נשמרו'))
                 .catch(err => showAlert('שגיאה בשמירה: ' + err.message));
         }
